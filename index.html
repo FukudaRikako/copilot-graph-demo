@@ -1,0 +1,1973 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microsoft Graph 3D Visualization</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #0a0a1a; 
+            overflow: hidden; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* ========== SPLIT LAYOUT ========== */
+        #pres-panel {
+            width: 50%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(180deg, #06081a 0%, #0a0e22 100%);
+            border-right: 1px solid rgba(80,230,255,0.1);
+            flex-shrink: 0;
+        }
+        .pres-inner {
+            flex: 1;
+            overflow-y: auto;
+            padding: 48px 44px 40px;
+        }
+        .pres-inner::-webkit-scrollbar { width: 4px; }
+        .pres-inner::-webkit-scrollbar-track { background: transparent; }
+        .pres-inner::-webkit-scrollbar-thumb { background: rgba(80,230,255,0.15); border-radius: 2px; }
+        #three-panel {
+            width: 50%;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+        #canvas { display: block; }
+        #tooltip {
+            position: absolute;
+            display: none;
+            background: rgba(0, 20, 40, 0.92);
+            border: 1px solid rgba(0, 120, 212, 0.6);
+            border-radius: 8px;
+            padding: 12px 18px;
+            color: #e0e8f0;
+            font-size: 13px;
+            pointer-events: none;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            max-width: 320px;
+            min-width: 200px;
+            box-shadow: 0 4px 20px rgba(0,120,212,0.3);
+        }
+        #tooltip h3 {
+            margin: 0 0 6px 0;
+            font-size: 15px;
+            color: #50e6ff;
+        }
+        #tooltip .api-path {
+            display: inline-block;
+            margin-top: 6px;
+            padding: 3px 8px;
+            background: rgba(80, 230, 255, 0.1);
+            border: 1px solid rgba(80, 230, 255, 0.2);
+            border-radius: 4px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 11px;
+            color: #50e6ff;
+            word-break: break-all;
+        }
+        #tooltip .edge-label {
+            font-size: 11px;
+            color: #7a8ea0;
+            margin-top: 2px;
+        }
+        #legend {
+            display: none;
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: #c0d0e0;
+            font-size: 13px;
+            z-index: 10;
+            background: rgba(0, 15, 30, 0.85);
+            border: 1px solid rgba(80, 230, 255, 0.15);
+            border-radius: 12px;
+            padding: 16px 20px;
+            backdrop-filter: blur(12px);
+            min-width: 260px;
+        }
+        #legend h4 {
+            font-size: 13px;
+            font-weight: 600;
+            color: #50e6ff;
+            margin-bottom: 12px;
+            letter-spacing: 1px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            padding: 6px 8px;
+            border-radius: 8px;
+            transition: background 0.2s, box-shadow 0.3s, transform 0.2s;
+            cursor: pointer;
+            user-select: none;
+        }
+        .legend-item:hover {
+            background: rgba(80, 230, 255, 0.08);
+        }
+        .legend-item.active {
+            background: rgba(80, 230, 255, 0.12);
+            box-shadow: 0 0 12px rgba(80, 230, 255, 0.25);
+            transform: scale(1.03);
+        }
+        .legend-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        .legend-text {
+            display: flex;
+            flex-direction: column;
+        }
+        .legend-label {
+            font-weight: 600;
+            font-size: 13px;
+            color: #e0e8f0;
+        }
+        .legend-desc {
+            font-size: 11px;
+            color: #7a8ea0;
+            margin-top: 1px;
+        }
+        /* Layer selector */
+        #layers {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            z-index: 10;
+            display: flex;
+            gap: 4px;
+        }
+        .layer-btn {
+            display: flex;
+            align-items: center;
+            padding: 5px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.3s;
+            background: rgba(0, 15, 30, 0.7);
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(8px);
+        }
+        .layer-btn:hover {
+            background: rgba(0, 30, 60, 0.85);
+        }
+        .layer-btn.active {
+            border-color: var(--lc);
+            box-shadow: 0 0 12px color-mix(in srgb, var(--lc) 40%, transparent);
+            background: rgba(0, 20, 40, 0.9);
+        }
+        .layer-btn .layer-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+            flex-shrink: 0;
+        }
+        .layer-btn .layer-name {
+            font-size: 11px;
+            font-weight: 600;
+            color: #c0d0e0;
+        }
+        .layer-btn .layer-sub {
+            display: none;
+        }
+        .layer-btn .layer-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ========== STORY NAV ========== */
+        #story-nav {
+            padding: 16px 44px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(6,8,26,0.98);
+            border-top: 1px solid rgba(80,230,255,0.08);
+            flex-shrink: 0;
+        }
+        .story-progress {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 32px;
+        }
+        .story-progress-dot {
+            flex: 1;
+            height: 3px;
+            border-radius: 2px;
+            background: rgba(255,255,255,0.08);
+            transition: background 0.4s;
+        }
+        .story-progress-dot.done {
+            background: linear-gradient(90deg, #4F6BFF, #8B5CF6);
+        }
+        .story-progress-dot.current {
+            background: #50e6ff;
+        }
+        .story-step {
+            display: none;
+            flex-direction: column;
+            animation: storyFadeIn 0.5s ease forwards;
+        }
+        .story-step.active {
+            display: flex;
+        }
+        @keyframes storyFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .story-eyebrow {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+        .story-title {
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.3;
+            letter-spacing: -0.02em;
+            margin-bottom: 20px;
+            color: #e8e8f4;
+        }
+        .story-title .acc { color: #50e6ff; }
+        .story-title .acc2 { color: #8B5CF6; }
+        .story-title .acc3 { color: #00D4AA; }
+        .story-title .acc4 { color: #FFB830; }
+        .story-body {
+            font-size: 15px;
+            line-height: 2;
+            color: #99aabb;
+        }
+        .story-body em {
+            font-style: normal;
+            color: #e0e8f4;
+            font-weight: 500;
+        }
+        .story-body strong {
+            color: #50e6ff;
+            font-weight: 600;
+        }
+        .story-card {
+            margin: 20px 0;
+            padding: 20px 24px;
+            border-radius: 14px;
+            border: 1px solid rgba(80,230,255,0.12);
+            background: rgba(255,255,255,0.03);
+            transition: box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+            cursor: default;
+        }
+        .story-card:hover {
+            box-shadow: 0 0 24px rgba(80,230,255,0.25), inset 0 0 30px rgba(80,230,255,0.04);
+            border-color: rgba(80,230,255,0.45);
+            background: rgba(80,230,255,0.06);
+        }
+        .story-card.highlight {
+            border-color: rgba(79,107,255,0.3);
+            background: rgba(79,107,255,0.06);
+        }
+        .story-card.teal {
+            border-color: rgba(0,212,170,0.25);
+            background: rgba(0,212,170,0.05);
+        }
+        .story-card.gold {
+            border-color: rgba(255,184,48,0.25);
+            background: rgba(255,184,48,0.05);
+        }
+        .story-code {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 6px;
+            background: rgba(0,0,0,0.4);
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 13px;
+            color: #00D4AA;
+            transition: box-shadow 0.25s ease, background 0.25s ease, color 0.25s ease;
+        }
+        .story-code:hover {
+            background: rgba(0,212,170,0.18);
+            color: #33ffcc;
+            box-shadow: 0 0 12px rgba(0,212,170,0.3);
+        }
+        .story-compare {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 16px 0;
+        }
+        .story-compare > div {
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.9;
+            transition: box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+        .story-compare > div:hover {
+            box-shadow: 0 0 18px rgba(80,230,255,0.18);
+        }
+        .story-compare .old {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #8899aa;
+        }
+        .story-compare .new {
+            background: rgba(79,107,255,0.08);
+            border: 1px solid rgba(79,107,255,0.25);
+            color: #c0d0e0;
+        }
+        .story-nodes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            margin: 12px 0;
+        }
+        .story-node {
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            transition: box-shadow 0.25s ease, background 0.25s ease, color 0.25s ease;
+            cursor: default;
+        }
+        .story-node:hover {
+            box-shadow: 0 0 16px rgba(80,230,255,0.35);
+            filter: brightness(1.4);
+        }
+        .sn-user { background: rgba(79,107,255,0.15); color: #4F6BFF; }
+        .sn-msg  { background: rgba(139,92,246,0.15); color: #8B5CF6; }
+        .sn-file { background: rgba(255,107,157,0.15); color: #FF6B9D; }
+        .sn-ev   { background: rgba(0,212,170,0.15); color: #00D4AA; }
+        .story-edge { font-size: 11px; color: #5a6a7a; }
+        .story-flow {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 16px 0;
+        }
+        .story-flow-box {
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .sf1 { background: rgba(79,107,255,0.15); border: 1px solid rgba(79,107,255,0.3); color: #4F6BFF; }
+        .sf2 { background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.3); color: #8B5CF6; }
+        .sf3 { background: rgba(0,212,170,0.15); border: 1px solid rgba(0,212,170,0.3); color: #00D4AA; }
+        .sf4 { background: rgba(255,184,48,0.15); border: 1px solid rgba(255,184,48,0.3); color: #FFB830; }
+        .story-flow-arr { color: #5a6a7a; font-size: 16px; }
+        .story-nav-btn {
+            padding: 10px 24px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+        #story-prev {
+            background: rgba(255,255,255,0.06);
+            color: #8899aa;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        #story-prev:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        #story-next {
+            background: linear-gradient(135deg, #4F6BFF, #8B5CF6);
+            color: #fff;
+        }
+        #story-next:hover { transform: scale(1.05); filter: brightness(1.1); }
+        #story-counter {
+            font-size: 12px;
+            color: #5a6a7a;
+            letter-spacing: 0.1em;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ========== LEFT: PRESENTATION PANEL ========== -->
+<div id="pres-panel">
+    <div class="pres-inner">
+        <div class="story-progress" id="story-progress"></div>
+
+        <!-- STEP 0: 導入 -->
+            <div class="story-step active" data-step="0" style="text-align:center; align-items:center; justify-content:center; height:100%;">
+                <div class="story-eyebrow" style="color:#50e6ff">Microsoft Graph の概要</div>
+                <h2 class="story-title"><span class="acc">Microsoft Graph</span> とは</h2>
+                <div class="story-body">
+                    ふだん仕事で使っている<br>
+                    <strong>メール、予定表、ファイル、チャット</strong>——<br>
+                    これらは別々のアプリに見えますが、<br>
+                    裏側では<em>すべてつながっています</em>。<br><br>
+                    その「つなぎ役」が<br>
+                    <strong style="color:#50e6ff">Microsoft Graph</strong> です。<br><br>
+                    たった一つの入口から、<br>
+                    Microsoft 365 のあらゆる情報を<br>
+                    まとめて取り出すことができます。
+                </div>
+            </div>
+
+            <!-- STEP 1: あなたが中心 -->
+            <div class="story-step" data-step="1">
+                <div class="story-eyebrow" style="color:#50e6ff">01 — ユーザー中心のデータモデル</div>
+                <h2 class="story-title"><span class="acc">「あなた」</span>を中心に<br>すべてがつながる</h2>
+                <div class="story-body">
+                    Microsoft Graph は<em>ユーザーを中心</em>にしたデータモデルです。<br><br>
+                    たとえば <span class="story-code">/me</span> というエンドポイントから、<br>
+                    自分に関わるすべてのリソースにアクセスできます。<br><br>
+                    <div class="story-card" style="border-color:rgba(80,230,255,0.15);margin-bottom:14px">
+                        <div style="font-weight:600;margin-bottom:6px;color:#50e6ff">🔍 Graph エクスプローラー</div>
+                        <div style="font-size:13px;line-height:1.8;color:#a0b4c8">
+                            マイクロソフト公式のツールで、<br>
+                            ブラウザ上から Graph API を<strong style="color:#e0e8f0">実際に試す</strong>ことができます。<br>
+                            <a href="https://developer.microsoft.com/en-us/graph/graph-explorer" target="_blank" rel="noopener noreferrer" style="color:#50e6ff;text-decoration:underline;word-break:break-all">developer.microsoft.com/en-us/graph/graph-explorer</a>
+                        </div>
+                    </div>
+                    <div class="story-card" style="border-color:rgba(80,230,255,0.15);margin-bottom:14px">
+                        <div style="font-weight:600;margin-bottom:6px;color:#50e6ff">📡 API ってなに？</div>
+                        <div style="font-size:13px;line-height:1.8;color:#a0b4c8">
+                            API は<strong style="color:#e0e8f0">「データを取得するための窓口」</strong>です。<br>
+                            ブラウザで URL を開くようなイメージで、<br>
+                            <span class="story-code" style="font-size:12px">GET</span> = <strong style="color:#e0e8f0">「このデータをください」</strong> という命令を送ります。<br>
+                            <span style="font-size:12px;color:#7a8ea0">※ GET は「取得する」という意味の英語です</span>
+                        </div>
+                    </div>
+                    <div class="story-card highlight">
+                        <div style="font-size:12px;color:#8899aa;margin-bottom:8px">💬 読み方：「<strong style="color:#c0d0e0">GET /me</strong>」＝「<em style="color:#50e6ff">私の情報をください</em>」</div>
+                        <div style="font-size:13px;line-height:2">
+                            <span class="story-code">GET /me</span>　プロファイル取得<br>
+                            <span class="story-code">GET /me/messages</span>　メール一覧<br>
+                            <span class="story-code">GET /me/events</span>　予定表<br>
+                            <span class="story-code">GET /me/drive/root/children</span>　ファイル<br>
+                            <span class="story-code">GET /me/joinedTeams</span>　参加チーム<br>
+                            <span class="story-code">GET /me/people</span>　関連する人
+                        </div>
+                    </div>
+                    <br>
+                    メール、予定、ファイル、同僚——<br>
+                    <strong>関係性で全部つながっている</strong>のが Graph の特徴です。
+                </div>
+            </div>
+
+            <!-- STEP 2: Graph の仕組み -->
+            <div class="story-step" data-step="2">
+                <div class="story-eyebrow" style="color:#50e6ff">02 — Graph の仕組み</div>
+                <h2 class="story-title"><span class="acc">だれが、どうやって</span><br>データを届けるのか</h2>
+                <div class="story-body">
+                    Graph を使うとき、裏側では<br>
+                    <strong>3つの役割</strong>が連携しています。<br><br>
+                    <div class="story-card" style="border-color:rgba(80,230,255,0.25)">
+                        <div style="font-size:14px;line-height:2.2">
+                            🏢 <strong style="color:#50e6ff">Microsoft 365</strong><br>
+                            <span style="font-size:13px;color:#a0b4c8">　メールやファイルなど<em>データの保管庫</em></span><br><br>
+                            🔑 <strong style="color:#ffd700">Microsoft Entra ID</strong><span style="font-size:12px;color:#7a8ea0">（旧 Azure AD）</span><br>
+                            <span style="font-size:13px;color:#a0b4c8">　「この人は誰？」を確認する<em>受付・身分証チェック</em></span><br><br>
+                            📡 <strong style="color:#00bcf2">Microsoft Graph</strong><br>
+                            <span style="font-size:13px;color:#a0b4c8">　身分証を見せれば何でも届けてくれる<em>窓口</em></span>
+                        </div>
+                    </div>
+                    <br>
+                    <div class="story-card highlight">
+                        <div style="font-weight:600;margin-bottom:10px;color:#50e6ff">💡 レストランに例えると…</div>
+                        <div style="font-size:13px;line-height:1.9;color:#c0d0e0">
+                            ① <strong>Entra ID</strong> ＝ 入口の受付（予約確認）<br>
+                            ② <strong>Graph</strong> ＝ ウェイター（注文を聞いて届ける）<br>
+                            ③ <strong>Microsoft 365</strong> ＝ 厨房（料理＝データを準備）<br><br>
+                            <span style="font-size:12px;color:#8899aa">あなたは受付で身分を証明し（認証）、<br>ウェイターに「メールを見せて」と頼む（API）だけ。<br>厨房から料理（データ）が届きます。</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 3: ユーザー体験層 -->
+            <div class="story-step" data-step="3">
+                <div class="story-eyebrow" style="color:#50e6ff">03 — ユーザー体験層</div>
+                <h2 class="story-title">☁️ <span class="acc">Microsoft 365 コアサービス</span></h2>
+                <div class="story-body">
+                    あなたが<em>毎日触れる</em>サービス群です。<br>
+                    Graph API を通じてすべてプログラムからアクセスできます。<br><br>
+                    <div class="story-card" style="border-color:rgba(80,230,255,0.25)">
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+                            <span class="story-node sn-user">Teams</span>
+                            <span class="story-node sn-msg">Outlook</span>
+                            <span class="story-node sn-ev">Copilot</span>
+                            <span class="story-node sn-file">Search</span>
+                            <span class="story-node" style="background:rgba(80,230,255,0.12);color:#50e6ff">Viva Engage</span>
+                        </div>
+                        チャット、メール、会議、AI アシスタント、横断検索——<br>
+                        <strong>ユーザーが直接操作する</strong>インターフェースです。
+                    </div>
+                    <br>
+                    <div class="story-card">
+                        <div style="font-weight:600;margin-bottom:8px;color:#50e6ff">💡 Graph でできること</div>
+                        <div style="font-size:13px;line-height:1.9">
+                            • 次の会議の出席者のプロファイルを自動取得<br>
+                            • 予定表をスキャンして最適な会議時間を提案<br>
+                            • メールの重要度でフィルタリング
+                        </div>
+                    </div>
+                    <br>
+                    <div class="story-card highlight">
+                        <div style="font-size:12px;color:#8899aa;margin-bottom:8px">💬 API に送る命令の例（GET＝取得、POST＝送信）</div>
+                        <span class="story-code">GET /me/joinedTeams</span>　<span style="font-size:12px;color:#7a8ea0">← 参加チームを取得</span><br>
+                        <span class="story-code">GET /me/messages?$filter=...</span>　<span style="font-size:12px;color:#7a8ea0">← 重要メールだけ取得</span><br>
+                        <span class="story-code">POST /search/query</span>　<span style="font-size:12px;color:#7a8ea0">← 検索を実行</span><br>
+                        <span style="font-size:12px;color:#8899aa;margin-top:8px;display:block">/me を起点に、体験層のデータへアクセス</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 4: プラットフォーム層 -->
+            <div class="story-step" data-step="4">
+                <div class="story-eyebrow" style="color:#00bcf2">04 — プラットフォーム層</div>
+                <h2 class="story-title">⚡ <span class="acc2">データ基盤サービス</span></h2>
+                <div class="story-body">
+                    <em>業務データが保存・管理される</em>層です。<br>
+                    Graph はこれらを統一的に抽象化します。<br><br>
+                    <div class="story-card" style="border-color:rgba(0,188,242,0.25)">
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+                            <span class="story-node sn-user">SharePoint</span>
+                            <span class="story-node sn-file">OneDrive</span>
+                            <span class="story-node sn-ev">Planner</span>
+                            <span class="story-node sn-msg">Excel</span>
+                            <span class="story-node" style="background:rgba(0,188,242,0.12);color:#00bcf2">OneNote</span>
+                            <span class="story-node" style="background:rgba(0,188,242,0.12);color:#00bcf2">To Do</span>
+                        </div>
+                        ファイル、タスク、ノート、スプレッドシート——<br>
+                        <strong>業務データの実体</strong>がここにあります。
+                    </div>
+                    <br>
+                    <div class="story-card">
+                        <div style="font-weight:600;margin-bottom:8px;color:#00bcf2">🔗 サービス間の関係性</div>
+                        <div style="font-size:13px;line-height:1.9">
+                            • Teams のファイルは実は <strong>SharePoint</strong> に保存<br>
+                            • Planner のタスクは <strong>Groups</strong> に紐づく<br>
+                            • OneDrive から <strong>Excel API</strong> でリアルタイム操作
+                        </div>
+                    </div>
+                    <br>
+                    <div class="story-card" style="border-color:rgba(0,188,242,0.2);background:rgba(0,188,242,0.04)">
+                        <div style="font-size:12px;color:#8899aa;margin-bottom:8px">💬 API でデータを取得する例</div>
+                        <span class="story-code">GET /sites/{id}/drive</span>　<span style="font-size:12px;color:#7a8ea0">← サイトのファイル</span><br>
+                        <span class="story-code">GET /me/drive/root/children</span>　<span style="font-size:12px;color:#7a8ea0">← マイファイル一覧</span><br>
+                        <span class="story-code">GET /me/.../workbook</span>　<span style="font-size:12px;color:#7a8ea0">← Excel を操作</span><br>
+                        <span style="font-size:12px;color:#8899aa;margin-top:8px;display:block">同じ GET 命令で、どのサービスのデータも取得可能</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 5: 基盤・セキュリティ層 -->
+            <div class="story-step" data-step="5">
+                <div class="story-eyebrow" style="color:#e74856">05 — 基盤・セキュリティ層</div>
+                <h2 class="story-title">🔒 <span class="acc4">Enterprise Mobility + Security</span></h2>
+                <div class="story-body">
+                    ユーザーID・デバイスID・アクセス管理・コンプライアンス・<br>
+                    セキュリティを管理し、<em>組織を保護する</em>層です。<br><br>
+                    <div class="story-card" style="border-color:rgba(231,72,86,0.25)">
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+                            <span class="story-node" style="background:rgba(0,120,212,0.15);color:#0078d4">Entra ID</span>
+                            <span class="story-node" style="background:rgba(0,90,158,0.15);color:#5a9fd4">認証/OAuth</span>
+                            <span class="story-node" style="background:rgba(216,59,1,0.15);color:#d83b01">Security</span>
+                            <span class="story-node" style="background:rgba(231,72,86,0.15);color:#e74856">Intune</span>
+                            <span class="story-node" style="background:rgba(196,62,28,0.15);color:#c43e1c">Reports</span>
+                        </div>
+                        ID管理、脅威検出、デバイス管理、監査ログ——<br>
+                        <strong>全サービスの安全を守る基盤</strong>です。
+                    </div>
+                    <br>
+                    <div class="story-card">
+                        <div style="font-weight:600;margin-bottom:8px;color:#e74856">🛡️ Graph のセキュリティ</div>
+                        <div style="font-size:13px;line-height:1.9">
+                            • Graph API はセキュリティで保護されており<br>
+                            　<strong>承認された呼び出し元のみ</strong>がアクセス可能<br>
+                            • OAuth 2.0 トークンによる認証・承認<br>
+                            • きめ細かなアクセス許可（スコープ）で制御
+                        </div>
+                    </div>
+                    <br>
+                    <div class="story-card" style="border-color:rgba(231,72,86,0.2);background:rgba(231,72,86,0.04)">
+                        <div style="font-size:12px;color:#8899aa;margin-bottom:8px">💬 セキュリティ情報を取得する API の例</div>
+                        <span class="story-code">GET /users/{id}</span>　<span style="font-size:12px;color:#7a8ea0">← ユーザー情報</span><br>
+                        <span class="story-code">GET /security/alerts_v2</span>　<span style="font-size:12px;color:#7a8ea0">← セキュリティ警告</span><br>
+                        <span class="story-code">GET /deviceManagement/...</span>　<span style="font-size:12px;color:#7a8ea0">← 管理デバイス一覧</span><br>
+                        <span style="font-size:12px;color:#8899aa;margin-top:8px;display:block">組織を守る情報も、同じ GET 命令で取得できます</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 6: まとめ -->
+            <div class="story-step" data-step="6">
+                <div class="story-eyebrow" style="color:#50e6ff">06 — まとめ</div>
+                <h2 class="story-title"><span class="acc">Microsoft Graph</span> まとめ</h2>
+                <div class="story-body">
+                    <div class="story-card" style="border-color:rgba(80,230,255,0.25)">
+                        <div style="font-weight:600;margin-bottom:10px;color:#50e6ff">📌 今日わかったこと</div>
+                        <div style="font-size:14px;line-height:2.0;color:#c0d0e0">
+                            • Graph は M365 のあらゆるデータへの<strong style="color:#50e6ff">統一窓口</strong><br>
+                            • <span class="story-code" style="font-size:12px">/me</span> を起点に、メール・予定・ファイル・チーム全部つながる<br>
+                            • Entra ID で認証し、<span class="story-code" style="font-size:12px">GET</span> ひとつでデータが届く
+                        </div>
+                    </div>
+                    <br>
+                    <div class="story-card" style="border-color:rgba(0,188,242,0.25)">
+                        <div style="font-weight:600;margin-bottom:10px;color:#00bcf2">🌐 さらに広がる世界</div>
+                        <div style="font-size:14px;line-height:2.0;color:#c0d0e0">
+                            Graph は Microsoft サービスだけでなく、<br>
+                            <strong style="color:#00bcf2">Copilot connectors</strong><span style="font-size:12px;color:#7a8ea0">（旧 Graph connectors）</span>を使えば<br>
+                            Salesforce・ServiceNow・Jira などの<br>
+                            <strong>外部データも Graph に集約</strong>できます。<br>
+                            <span style="font-size:13px;color:#8899aa">→ Copilot や Microsoft Search が社内外を横断検索</span>
+                        </div>
+                    </div>
+                    <br>
+                    <div class="story-card highlight" style="text-align:center;padding:28px 24px">
+                        <div style="font-size:18px;font-weight:700;color:#e0e8f4;line-height:1.8">
+                            Graph があれば、<br>
+                            組織の<span style="color:#50e6ff">あらゆる情報をつなぐ</span>ことができる。<br><br>
+                            <span style="font-size:22px;color:#ffd700">「あなたの組織では、<br>何と何をつなげたいですか？」</span>
+                        </div>
+                    </div>
+                    <br>
+                    <div class="story-card" style="border-color:rgba(255,184,48,0.3);background:rgba(255,184,48,0.04)">
+                        <div style="font-weight:600;margin-bottom:10px;color:#FFB830">⚠️ ただし…</div>
+                        <div style="font-size:14px;line-height:2.0;color:#c0d0e0">
+                            情報をつなぐためには、<br>
+                            <strong style="color:#FFB830">「データの構造化」</strong>が大事なんです。<br><br>
+                            整理されていないデータは、<br>
+                            Graph でもうまくつなげません。<br><br>
+                            <strong style="color:#e0e8f4">まずは自分たちのデータが<br>「つなげる状態か？」を考えることが第一歩です。</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+    </div><!-- /pres-inner -->
+
+    <div id="story-nav">
+        <button class="story-nav-btn" id="story-prev">← 戻る</button>
+        <span id="story-counter">1 / 8</span>
+        <button class="story-nav-btn" id="story-next">次へ →</button>
+    </div>
+</div><!-- /pres-panel -->
+
+<!-- ========== RIGHT: 3D PANEL ========== -->
+<div id="three-panel">
+    <div id="tooltip"></div>
+    <div id="layers">
+        <div class="layer-btn" data-layer="user" style="--lc:#50e6ff">
+            <div class="layer-dot" style="background:#50e6ff"></div>
+            <div class="layer-text"><span class="layer-name">体験</span></div>
+        </div>
+        <div class="layer-btn" data-layer="platform" style="--lc:#00bcf2">
+            <div class="layer-dot" style="background:#00bcf2"></div>
+            <div class="layer-text"><span class="layer-name">基盤</span></div>
+        </div>
+        <div class="layer-btn" data-layer="infra" style="--lc:#e74856">
+            <div class="layer-dot" style="background:#e74856"></div>
+            <div class="layer-text"><span class="layer-name">安全</span></div>
+        </div>
+    </div>
+    <canvas id="canvas"></canvas>
+</div><!-- /three-panel -->
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Scene Setup ---
+        const threePanel = document.getElementById('three-panel');
+        const canvasEl = document.getElementById('canvas');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a1a);
+
+        const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
+        camera.position.set(12, 10, 20);
+
+        const renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+
+        function resizeRenderer() {
+            const w = threePanel.clientWidth || (window.innerWidth / 2);
+            const h = threePanel.clientHeight || window.innerHeight;
+            if (w > 0 && h > 0) {
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+                renderer.setSize(w, h);
+            }
+        }
+        requestAnimationFrame(() => resizeRenderer());
+
+        const controls = new OrbitControls(camera, canvasEl);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.3;
+        controls.minDistance = 5;
+        controls.maxDistance = 40;
+
+        // --- Lighting ---
+        scene.add(new THREE.AmbientLight(0x334466, 0.8));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(10, 15, 10);
+        scene.add(dirLight);
+        const pointLight = new THREE.PointLight(0x0078d4, 2, 50);
+        pointLight.position.set(0, 0, 0);
+        scene.add(pointLight);
+
+        // --- Categories ---
+        const COLORS = {
+            center: 0x50e6ff,
+            identity: 0x0078d4,
+            collaboration: 0x00bcf2,
+            productivity: 0x7fba00,
+            intelligence: 0xff8c00,
+            management: 0xe74856
+        };
+
+        // --- Node Data (Graph API endpoints) ---
+        // 3D Position Meaning:
+        //   Y軸 = 抽象度レイヤー (+上=ユーザー向け / -下=基盤・管理)
+        //   X軸 = 個人 ←→ 組織  (-左=/me個人 / +右=グループ・テナント)
+        //   Z軸 = データ・記録 ←→ コミュニケーション (-手前=ファイル・データ / +奥=チャット・会議)
+        const nodes = [
+            // Center
+            { id: 'you', label: 'あなた', desc: 'Microsoft Graph の中心。/me エンドポイントで自分自身の情報にアクセス。', api: '/me', category: 'center', yLevel: 0, xPos: 0, zPos: 0 },
+
+            // Identity & Security — 組織側・基盤層
+            { id: 'entraid', label: 'Entra ID', desc: 'すべてのユーザー・グループの ID 基盤。アクセストークン発行の起点。', api: '/users, /identity', category: 'identity', yLevel: -4, xPos: 3, zPos: 0 },
+            { id: 'auth', label: '認証/OAuth', desc: 'OAuth 2.0 トークンで Graph API を呼び出す。すべての API 呼び出しの前提。', api: 'login.microsoftonline.com/oauth2/v2.0/token', category: 'identity', yLevel: -5, xPos: 0, zPos: -2 },
+            { id: 'security', label: 'Security', desc: 'セキュリティアラート・インシデント・脅威インテリジェンス。', api: '/security/alerts_v2', category: 'identity', yLevel: -3, xPos: 6, zPos: -3 },
+
+            // Collaboration
+            // Teams: 組織(チーム単位) + コミュニケーション寄り
+            { id: 'teams', label: 'Teams', desc: 'チーム・チャネル・チャット・オンライン会議の管理。', api: '/me/joinedTeams, /teams/{id}', category: 'collaboration', yLevel: 4, xPos: 5, zPos: 8 },
+            // Outlook: 個人寄り + コミュニケーション寄り
+            { id: 'outlook', label: 'Outlook', desc: 'メール・カレンダー・連絡先。/me 配下の主要リソース。', api: '/me/messages, /me/events, /me/contacts', category: 'collaboration', yLevel: 3.5, xPos: -3, zPos: 7 },
+            // SharePoint: 組織側 + データ寄り
+            { id: 'sharepoint', label: 'SharePoint', desc: 'サイト・ドキュメントライブラリ・リスト。', api: '/sites/{id}, /sites/{id}/lists', category: 'collaboration', yLevel: 0, xPos: 7, zPos: -4 },
+            // OneDrive: 個人 + データ
+            { id: 'onedrive', label: 'OneDrive', desc: '個人用ファイルストレージ。Drive API でアクセス。', api: '/me/drive, /me/drive/root/children', category: 'collaboration', yLevel: 1, xPos: -5, zPos: -3 },
+            // Viva Engage: 組織 + コミュニケーション
+            { id: 'yammer', label: 'Viva Engage', desc: 'コミュニティ・会話。M365 Groups がバックエンド。', api: '/employeeExperience/communities', category: 'collaboration', yLevel: 3, xPos: 8, zPos: 5 },
+
+            // Productivity
+            // Planner: 組織(Group単位) + データ寄り
+            { id: 'planner', label: 'Planner', desc: 'プラン・バケット・タスク。Group に紐づく。', api: '/planner/plans/{id}/tasks', category: 'productivity', yLevel: 2.5, xPos: 5, zPos: -1 },
+            // To Do: 個人 + データ寄り
+            { id: 'todo', label: 'To Do', desc: '個人タスク管理。リスト・タスク。', api: '/me/todo/lists, /me/todo/lists/{id}/tasks', category: 'productivity', yLevel: 3, xPos: -7, zPos: -1 },
+            // OneNote: 個人 + データ
+            { id: 'onenote', label: 'OneNote', desc: 'ノートブック・セクション・ページ。OneDrive に保存。', api: '/me/onenote/notebooks', category: 'productivity', yLevel: 1.5, xPos: -9, zPos: -7 },
+            // Excel: 中間 + データ
+            { id: 'excel', label: 'Excel', desc: 'ブック内のテーブル・関数をAPIで操作。DriveItem 経由。', api: '/me/drive/items/{id}/workbook', category: 'productivity', yLevel: 0.5, xPos: -3, zPos: -8 },
+
+            // Intelligence
+            // Copilot: 個人+組織両方を横断、コミュニケーション寄り
+            { id: 'copilot', label: 'Copilot', desc: 'M365 Copilot。Graph のデータを横断的に参照し AI が回答。', api: 'Graph Data Connect + AI', category: 'intelligence', yLevel: 5, xPos: 0, zPos: 3 },
+            // Insights: 個人 + データ寄り
+            { id: 'insights', label: 'Insights', desc: 'よく使うファイル・トレンド・共有されたアイテム。', api: '/me/insights/trending, /me/insights/used', category: 'intelligence', yLevel: 4, xPos: -4, zPos: -3 },
+            // Search: 組織全体横断
+            { id: 'search', label: 'Search', desc: 'M365 全体を横断検索。メール・ファイル・サイト等。', api: '/search/query', category: 'intelligence', yLevel: 3.5, xPos: 3, zPos: 3 },
+
+            // Management — 組織側・基盤層
+            { id: 'intune', label: 'Intune', desc: 'デバイス管理・コンプライアンスポリシー・アプリ配信。', api: '/deviceManagement/managedDevices', category: 'management', yLevel: -3, xPos: 10, zPos: 4 },
+            // Groups: 組織の中心、データとコミュニケーションの中間
+            { id: 'groups', label: 'Groups', desc: 'M365 グループ。Teams・SharePoint・Planner の基盤。', api: '/groups/{id}, /me/memberOf', category: 'management', yLevel: -1, xPos: 7, zPos: -1 },
+            // Reports: 組織全体 + データ
+            { id: 'reports', label: 'Reports', desc: 'サービス利用状況・監査ログ。', api: '/reports/getOffice365ActiveUserDetail', category: 'management', yLevel: -2, xPos: 10, zPos: -4 },
+        ];
+
+        // --- Edges (Real Graph API relationships) ---
+        // Each edge: [from, to, description, API path/basis]
+        const edges = [
+            // /me → 直接アクセスできるリソース (Graph API の /me/ 配下)
+            ['you', 'entraid',     '/me はEntra IDのユーザーオブジェクト',             '/me → /users/{id}'],
+            ['you', 'outlook',     '/me/messages でメール取得',                       '/me/messages'],
+            ['you', 'teams',       '/me/joinedTeams で参加チーム一覧',                '/me/joinedTeams'],
+            ['you', 'onedrive',    '/me/drive で個人ファイルにアクセス',               '/me/drive'],
+            ['you', 'todo',        '/me/todo/lists で個人タスク管理',                  '/me/todo/lists'],
+            ['you', 'insights',    '/me/insights で利用傾向を取得',                    '/me/insights/trending'],
+            ['you', 'copilot',     'Copilot は /me 配下のデータを横断参照',            'Graph + AI'],
+            ['you', 'security',    '/me/authentication で認証方法を管理',              '/me/authentication/methods'],
+
+            // Entra ID（認証基盤）→ 各サービスへのアクセス許可
+            ['auth', 'entraid',    'OAuthトークンでEntra IDが本人確認',                'OAuth 2.0 → /users/{id}'],
+            ['entraid', 'groups',  'ユーザーの所属グループを取得',                      '/users/{id}/memberOf'],
+            ['entraid', 'security','条件付きアクセスポリシーで保護',                     '/identity/conditionalAccess/policies'],
+            ['entraid', 'intune',  'デバイスコンプライアンスとユーザーを紐付け',          '/deviceManagement/managedDevices'],
+
+            // Groups が Teams・SharePoint・Planner のバックエンド
+            ['groups', 'teams',      'チームは M365 Group として存在',                  '/groups/{id}/team'],
+            ['groups', 'sharepoint', 'グループには SharePoint サイトが自動作成',          '/groups/{id}/sites/root'],
+            ['groups', 'planner',    'グループにプランが紐づく',                          '/groups/{id}/planner/plans'],
+            ['groups', 'onedrive',   'グループ共有ドライブ',                              '/groups/{id}/drive'],
+
+            // Teams 内のリソース連携
+            ['teams', 'sharepoint',  'チャネルのファイルは SharePoint に保存',            '/teams/{id}/channels/{id}/filesFolder'],
+            ['teams', 'onedrive',    'Teams のファイルタブは Drive API',                 'driveItem 経由'],
+            ['teams', 'planner',     'Teams タブに Planner を統合',                     'Teams Tab → Planner'],
+            ['teams', 'onenote',     'Teams タブに OneNote を統合',                     'Teams Tab → OneNote'],
+
+            // Outlook 連携
+            ['outlook', 'todo',      'フラグ付きメールが To Do に自動表示',               'Outlook flaggedEmail → To Do'],
+
+            // ファイル系の関係
+            ['sharepoint', 'onedrive','SharePoint のドキュメントライブラリ = Drive',       '/sites/{id}/drive'],
+            ['sharepoint', 'excel',   'SharePoint 上の Excel を API で操作',             '/sites/{id}/drive/items/{id}/workbook'],
+            ['onedrive', 'excel',     'OneDrive 上の Excel ブックを操作',                '/me/drive/items/{id}/workbook'],
+            ['onedrive', 'onenote',   'OneNote ノートブックは OneDrive に保存',           '/me/onenote/notebooks → driveItem'],
+
+            // Intelligence
+            ['search', 'outlook',     'Search API でメールを横断検索',                   '/search/query (message)'],
+            ['search', 'sharepoint',  'Search API でサイト・ファイルを検索',              '/search/query (driveItem, site)'],
+            ['search', 'teams',       'Search API で Teams メッセージを検索',            '/search/query (chatMessage)'],
+            ['copilot', 'insights',   'Copilot が Insights データを活用',                'Graph Data Connect'],
+
+            // Management
+            ['intune', 'security',    'デバイスコンプライアンス状態をセキュリティに連携',     'deviceCompliancePolicy'],
+            ['reports', 'teams',      'Teams 利用状況レポート',                          '/reports/getTeamsUserActivityDetail'],
+            ['reports', 'outlook',    'メール利用状況レポート',                           '/reports/getEmailActivityUserDetail'],
+
+            // Viva Engage
+            ['yammer', 'groups',      'コミュニティは M365 Group がバックエンド',          '/employeeExperience/communities → group'],
+        ];
+
+        // --- Position: Direct X/Z placement ---
+        // X = 個人(-) ↔ 組織(+)   Z = データ(-) ↔ コミュニケーション(+)   Y = yLevel
+        function getNodePosition(node) {
+            return new THREE.Vector3(node.xPos, node.yLevel, node.zPos);
+        }
+
+        // --- Product Icon Definitions ---
+        // Each icon: { bg, fg, symbol, symbolType }
+        // symbolType: 'letter' (bold letter), 'path' (canvas drawing function)
+        const ICONS = {
+            you: { bg: '#0a1628', fg: '#50e6ff', symbol: null, symbolType: 'avatar' },
+            entraid: { bg: '#0078d4', fg: '#ffffff', symbol: null, symbolType: 'shield' },
+            auth: { bg: '#005a9e', fg: '#ffffff', symbol: null, symbolType: 'key' },
+            security: { bg: '#d83b01', fg: '#ffffff', symbol: null, symbolType: 'shieldCheck' },
+            teams: { bg: '#5b5fc7', fg: '#ffffff', symbol: null, symbolType: 'teams' },
+            outlook: { bg: '#0078d4', fg: '#ffffff', symbol: null, symbolType: 'outlook' },
+            sharepoint: { bg: '#038387', fg: '#ffffff', symbol: null, symbolType: 'sharepoint' },
+            onedrive: { bg: '#0078d4', fg: '#ffffff', symbol: null, symbolType: 'cloud' },
+            yammer: { bg: '#106ebe', fg: '#ffffff', symbol: 'V', symbolType: 'letter' },
+            planner: { bg: '#31752f', fg: '#ffffff', symbol: null, symbolType: 'planner' },
+            todo: { bg: '#3f6aea', fg: '#ffffff', symbol: null, symbolType: 'todo' },
+            onenote: { bg: '#7719aa', fg: '#ffffff', symbol: 'N', symbolType: 'letter' },
+            excel: { bg: '#217346', fg: '#ffffff', symbol: 'X', symbolType: 'letter' },
+            copilot: { bg: '#1a1a2e', fg: '#50e6ff', symbol: null, symbolType: 'copilot' },
+            insights: { bg: '#ff8c00', fg: '#ffffff', symbol: null, symbolType: 'insights' },
+            search: { bg: '#ff8c00', fg: '#ffffff', symbol: null, symbolType: 'search' },
+            intune: { bg: '#0078d4', fg: '#ffffff', symbol: null, symbolType: 'intune' },
+            groups: { bg: '#e74856', fg: '#ffffff', symbol: null, symbolType: 'groups' },
+            reports: { bg: '#c43e1c', fg: '#ffffff', symbol: null, symbolType: 'reports' },
+        };
+
+        function createIconTexture(nodeId, label, size) {
+            const s = 256;
+            const canvas = document.createElement('canvas');
+            canvas.width = s;
+            canvas.height = s + 80;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const icon = ICONS[nodeId] || { bg: '#333', fg: '#fff', symbol: '?', symbolType: 'letter' };
+            const cx = s / 2, cy = s / 2, r = s * 0.42;
+
+            // Outer glow
+            ctx.shadowColor = icon.bg;
+            ctx.shadowBlur = 30;
+
+            // Background circle
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.fillStyle = icon.bg;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Subtle border
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw icon symbol
+            ctx.fillStyle = icon.fg;
+            ctx.strokeStyle = icon.fg;
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            const draw = {
+                letter: () => {
+                    ctx.font = `bold ${s * 0.38}px 'Segoe UI', sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(icon.symbol, cx, cy);
+                },
+                avatar: () => {
+                    // Person silhouette
+                    ctx.beginPath();
+                    ctx.arc(cx, cy - r * 0.18, r * 0.28, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(cx, cy + r * 0.55, r * 0.45, Math.PI, 0);
+                    ctx.fill();
+                },
+                shield: () => {
+                    const w = r * 0.55, h = r * 0.7;
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy - h);
+                    ctx.lineTo(cx + w, cy - h * 0.5);
+                    ctx.lineTo(cx + w, cy + h * 0.2);
+                    ctx.quadraticCurveTo(cx, cy + h, cx, cy + h);
+                    ctx.quadraticCurveTo(cx, cy + h, cx - w, cy + h * 0.2);
+                    ctx.lineTo(cx - w, cy - h * 0.5);
+                    ctx.closePath();
+                    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                    ctx.fill();
+                    ctx.strokeStyle = icon.fg;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    // ID text
+                    ctx.fillStyle = icon.fg;
+                    ctx.font = `bold ${s * 0.16}px 'Segoe UI', sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('ID', cx, cy);
+                },
+                key: () => {
+                    const k = r * 0.6;
+                    ctx.beginPath();
+                    ctx.arc(cx - k * 0.3, cy, k * 0.35, 0, Math.PI * 2);
+                    ctx.strokeStyle = icon.fg;
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(cx - k * 0.3 + k * 0.35, cy);
+                    ctx.lineTo(cx + k * 0.7, cy);
+                    ctx.moveTo(cx + k * 0.5, cy);
+                    ctx.lineTo(cx + k * 0.5, cy + k * 0.22);
+                    ctx.moveTo(cx + k * 0.7, cy);
+                    ctx.lineTo(cx + k * 0.7, cy + k * 0.22);
+                    ctx.stroke();
+                },
+                shieldCheck: () => {
+                    const w = r * 0.5, h = r * 0.65;
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy - h);
+                    ctx.lineTo(cx + w, cy - h * 0.5);
+                    ctx.lineTo(cx + w, cy + h * 0.15);
+                    ctx.quadraticCurveTo(cx, cy + h, cx, cy + h);
+                    ctx.quadraticCurveTo(cx, cy + h, cx - w, cy + h * 0.15);
+                    ctx.lineTo(cx - w, cy - h * 0.5);
+                    ctx.closePath();
+                    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                    ctx.fill();
+                    ctx.strokeStyle = icon.fg;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    // Checkmark
+                    ctx.beginPath();
+                    ctx.moveTo(cx - w * 0.35, cy);
+                    ctx.lineTo(cx - w * 0.05, cy + h * 0.25);
+                    ctx.lineTo(cx + w * 0.4, cy - h * 0.15);
+                    ctx.strokeStyle = icon.fg;
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                },
+                teams: () => {
+                    // T shape + people
+                    ctx.font = `bold ${s * 0.34}px 'Segoe UI', sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('T', cx - r * 0.08, cy);
+                    // Small person circle
+                    ctx.beginPath();
+                    ctx.arc(cx + r * 0.42, cy - r * 0.2, r * 0.16, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                    ctx.fill();
+                },
+                outlook: () => {
+                    // Envelope shape
+                    const w = r * 0.65, h = r * 0.45;
+                    ctx.strokeStyle = icon.fg;
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(cx - w, cy - h, w * 2, h * 2);
+                    ctx.beginPath();
+                    ctx.moveTo(cx - w, cy - h);
+                    ctx.lineTo(cx, cy + h * 0.15);
+                    ctx.lineTo(cx + w, cy - h);
+                    ctx.stroke();
+                },
+                sharepoint: () => {
+                    ctx.font = `bold ${s * 0.38}px 'Segoe UI', sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('S', cx, cy);
+                    // Small circle accent
+                    ctx.beginPath();
+                    ctx.arc(cx + r * 0.35, cy - r * 0.35, r * 0.12, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                    ctx.fill();
+                },
+                cloud: () => {
+                    // Cloud shape
+                    ctx.beginPath();
+                    ctx.arc(cx, cy - r * 0.05, r * 0.35, Math.PI * 0.9, Math.PI * 0.1);
+                    ctx.arc(cx + r * 0.3, cy + r * 0.05, r * 0.28, Math.PI * 1.35, Math.PI * 0.5);
+                    ctx.arc(cx - r * 0.05, cy + r * 0.22, r * 0.3, 0, Math.PI);
+                    ctx.arc(cx - r * 0.35, cy + r * 0.05, r * 0.22, Math.PI * 0.5, Math.PI * 1.3);
+                    ctx.closePath();
+                    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+                    ctx.fill();
+                    ctx.strokeStyle = icon.fg;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                },
+                planner: () => {
+                    // Grid with checkmark
+                    const g = r * 0.55;
+                    ctx.strokeStyle = icon.fg;
+                    ctx.lineWidth = 2.5;
+                    ctx.strokeRect(cx - g, cy - g, g * 2, g * 2);
+                    ctx.moveTo(cx, cy - g); ctx.lineTo(cx, cy + g); ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(cx - g, cy); ctx.lineTo(cx + g, cy); ctx.stroke();
+                    // Check in top-left
+                    ctx.beginPath();
+                    ctx.moveTo(cx - g * 0.7, cy - g * 0.2);
+                    ctx.lineTo(cx - g * 0.4, cy - g * 0.0);
+                    ctx.lineTo(cx - g * 0.1, cy - g * 0.6);
+                    ctx.strokeStyle = '#90ee90';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                },
+                todo: () => {
+                    // Checkmark circle
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
+                    ctx.strokeStyle = icon.fg;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(cx - r * 0.22, cy + r * 0.02);
+                    ctx.lineTo(cx - r * 0.05, cy + r * 0.22);
+                    ctx.lineTo(cx + r * 0.25, cy - r * 0.18);
+                    ctx.strokeStyle = icon.fg;
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                },
+                copilot: () => {
+                    // Sparkle / star burst
+                    const colors = ['#50e6ff', '#7fba00', '#ff8c00', '#e74856'];
+                    for (let i = 0; i < 4; i++) {
+                        const a = (i / 4) * Math.PI * 2 - Math.PI / 4;
+                        const len = r * 0.55;
+                        ctx.beginPath();
+                        ctx.moveTo(cx, cy);
+                        ctx.lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len);
+                        ctx.strokeStyle = colors[i];
+                        ctx.lineWidth = 4;
+                        ctx.stroke();
+                    }
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, r * 0.18, 0, Math.PI * 2);
+                    ctx.fillStyle = '#50e6ff';
+                    ctx.fill();
+                },
+                insights: () => {
+                    // Bar chart trending up
+                    const bw = r * 0.22, gap = r * 0.08;
+                    const bars = [0.3, 0.55, 0.45, 0.8];
+                    bars.forEach((h, i) => {
+                        const x = cx - r * 0.55 + i * (bw + gap);
+                        const barH = r * 1.2 * h;
+                        ctx.fillStyle = i === 3 ? '#ffffff' : 'rgba(255,255,255,0.5)';
+                        ctx.fillRect(x, cy + r * 0.5 - barH, bw, barH);
+                    });
+                },
+                search: () => {
+                    // Magnifying glass
+                    ctx.beginPath();
+                    ctx.arc(cx - r * 0.08, cy - r * 0.08, r * 0.35, 0, Math.PI * 2);
+                    ctx.strokeStyle = icon.fg;
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(cx + r * 0.16, cy + r * 0.16);
+                    ctx.lineTo(cx + r * 0.48, cy + r * 0.48);
+                    ctx.lineWidth = 5;
+                    ctx.stroke();
+                },
+                intune: () => {
+                    // Device (phone/laptop)
+                    const w = r * 0.4, h = r * 0.6;
+                    ctx.strokeStyle = icon.fg;
+                    ctx.lineWidth = 3;
+                    // Phone
+                    const rx = 6;
+                    ctx.beginPath();
+                    ctx.roundRect(cx - w, cy - h, w * 2, h * 2, rx);
+                    ctx.stroke();
+                    // Screen
+                    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                    ctx.fillRect(cx - w + 5, cy - h + 8, w * 2 - 10, h * 2 - 20);
+                    // Home button
+                    ctx.beginPath();
+                    ctx.arc(cx, cy + h - 6, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = icon.fg;
+                    ctx.fill();
+                },
+                groups: () => {
+                    // Three people
+                    const offsets = [-r * 0.3, 0, r * 0.3];
+                    offsets.forEach((ox, i) => {
+                        ctx.beginPath();
+                        ctx.arc(cx + ox, cy - r * 0.15, r * 0.15, 0, Math.PI * 2);
+                        ctx.fillStyle = i === 1 ? icon.fg : 'rgba(255,255,255,0.5)';
+                        ctx.fill();
+                    });
+                    ctx.beginPath();
+                    ctx.arc(cx, cy + r * 0.35, r * 0.35, Math.PI, 0);
+                    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                    ctx.fill();
+                },
+                reports: () => {
+                    // Document with lines
+                    const w = r * 0.45, h = r * 0.6;
+                    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                    ctx.fillRect(cx - w, cy - h, w * 2, h * 2);
+                    ctx.strokeStyle = icon.fg;
+                    ctx.lineWidth = 2.5;
+                    ctx.strokeRect(cx - w, cy - h, w * 2, h * 2);
+                    // Lines
+                    for (let l = 0; l < 3; l++) {
+                        const ly = cy - h * 0.4 + l * h * 0.45;
+                        ctx.beginPath();
+                        ctx.moveTo(cx - w * 0.6, ly);
+                        ctx.lineTo(cx + w * 0.6, ly);
+                        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                }
+            };
+
+            if (draw[icon.symbolType]) {
+                draw[icon.symbolType]();
+            }
+
+            // Label below circle
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = 'rgba(0,0,0,0.9)';
+            ctx.shadowBlur = 6;
+            ctx.font = `bold ${size > 1 ? 28 : 22}px 'Segoe UI', sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, s / 2, s + 40);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        // --- Create Node Meshes ---
+        const nodeMap = {};
+        const nodeMeshes = [];
+        const labelSprites = [];
+        const glowMeshes = [];
+
+        nodes.forEach(node => {
+            const pos = getNodePosition(node);
+            const color = COLORS[node.category];
+            const isCenter = node.id === 'you';
+            const size = isCenter ? 1.2 : 0.5;
+
+            // Invisible sphere for raycasting
+            const geo = new THREE.SphereGeometry(size * 1.3, 16, 16);
+            const mat = new THREE.MeshBasicMaterial({ visible: false });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(pos);
+            mesh.userData = node;
+            scene.add(mesh);
+            nodeMeshes.push(mesh);
+
+            // Icon sprite (replaces visible sphere)
+            const iconTex = createIconTexture(node.id, node.label, size);
+            const iconMat = new THREE.SpriteMaterial({
+                map: iconTex,
+                transparent: true,
+                depthTest: false,
+                sizeAttenuation: true
+            });
+            const iconSprite = new THREE.Sprite(iconMat);
+            const iconScale = isCenter ? 4.5 : 2.8;
+            iconSprite.scale.set(iconScale, iconScale * 1.3, 1);
+            iconSprite.position.copy(pos);
+            scene.add(iconSprite);
+            labelSprites.push(iconSprite);
+
+            // Glow
+            const glowGeo = new THREE.SphereGeometry(size * 2.0, 16, 16);
+            const glowMat = new THREE.MeshBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0,
+                side: THREE.BackSide
+            });
+            const glow = new THREE.Mesh(glowGeo, glowMat);
+            glow.position.copy(pos);
+            scene.add(glow);
+            glowMeshes.push(glow);
+
+            // Ring for center node
+            if (isCenter) {
+                for (let r = 0; r < 3; r++) {
+                    const ringGeo = new THREE.RingGeometry(2.0 + r * 0.5, 2.05 + r * 0.5, 64);
+                    const ringMat = new THREE.MeshBasicMaterial({
+                        color: 0x50e6ff,
+                        transparent: true,
+                        opacity: 0.12 - r * 0.03,
+                        side: THREE.DoubleSide
+                    });
+                    const ring = new THREE.Mesh(ringGeo, ringMat);
+                    ring.position.copy(pos);
+                    ring.rotation.x = Math.PI / 2;
+                    scene.add(ring);
+                }
+            }
+
+            nodeMap[node.id] = { mesh, pos, node, glow, iconSprite };
+        });
+
+        // --- Create Edges ---
+        const edgeLines = [];     // visible thin tubes
+        const edgeHitboxes = [];  // invisible thick tubes for hover detection
+        edges.forEach(([fromId, toId, desc, apiPath]) => {
+            const from = nodeMap[fromId];
+            const to = nodeMap[toId];
+            if (!from || !to) return;
+
+            const points = [];
+            const segments = 40;
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments;
+                const p = new THREE.Vector3().lerpVectors(from.pos, to.pos, t);
+                const mid = Math.sin(t * Math.PI);
+                p.y += mid * 1.2;
+                points.push(p);
+            }
+
+            const curve = new THREE.CatmullRomCurve3(points);
+
+            // Visible edge
+            const geo = new THREE.TubeGeometry(curve, 30, 0.025, 8, false);
+            const isFromCenter = fromId === 'you';
+            const mat = new THREE.MeshBasicMaterial({
+                color: isFromCenter ? 0x50e6ff : COLORS[from.node.category],
+                transparent: true,
+                opacity: isFromCenter ? 0.5 : 0.2
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.userData = { type: 'edge', from: fromId, to: toId, desc, apiPath };
+            scene.add(mesh);
+            edgeLines.push(mesh);
+
+            // Invisible hitbox for hover (thicker tube)
+            const hitGeo = new THREE.TubeGeometry(curve, 20, 0.3, 6, false);
+            const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+            const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+            hitMesh.userData = { type: 'edge', index: edgeLines.length - 1, from: fromId, to: toId, desc, apiPath };
+            scene.add(hitMesh);
+            edgeHitboxes.push(hitMesh);
+        });
+
+        // --- Particle System for data flow ---
+        const particleCount = 600;
+        const particleGeometry = new THREE.BufferGeometry();
+        const particlePositions = new Float32Array(particleCount * 3);
+        const particleColors = new Float32Array(particleCount * 3);
+        const particleData = [];
+
+        for (let i = 0; i < particleCount; i++) {
+            const edgeIdx = Math.floor(Math.random() * edges.length);
+            const [fromId, toId, ,] = edges[edgeIdx];
+            const from = nodeMap[fromId];
+            const to = nodeMap[toId];
+            if (!from || !to) {
+                particlePositions[i * 3] = 0;
+                particlePositions[i * 3 + 1] = 0;
+                particlePositions[i * 3 + 2] = 0;
+                particleColors[i * 3] = 1;
+                particleColors[i * 3 + 1] = 1;
+                particleColors[i * 3 + 2] = 1;
+                particleData.push({ t: Math.random(), speed: 0.002 + Math.random() * 0.005, from: from?.pos || new THREE.Vector3(), to: to?.pos || new THREE.Vector3() });
+                continue;
+            }
+            particleData.push({
+                t: Math.random(),
+                speed: 0.002 + Math.random() * 0.005,
+                from: from.pos,
+                to: to.pos
+            });
+            const color = new THREE.Color(COLORS[from.node.category]);
+            particleColors[i * 3] = color.r;
+            particleColors[i * 3 + 1] = color.g;
+            particleColors[i * 3 + 2] = color.b;
+        }
+
+        particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+        particleGeometry.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+
+        const particleMaterial = new THREE.PointsMaterial({
+            size: 0.08,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const particleSystem = new THREE.Points(particleGeometry, particleMaterial);
+        scene.add(particleSystem);
+
+        // --- Orbital Rings (now at each Y-layer for depth cue) ---
+        // Faint concentric circles at y=0 (platform layer)
+        [5, 9, 13].forEach(radius => {
+            const ringGeo = new THREE.RingGeometry(radius - 0.03, radius + 0.03, 128);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: 0x1a3a5c, transparent: true, opacity: 0.1, side: THREE.DoubleSide
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.y = 0;
+            scene.add(ring);
+        });
+
+        // Vertical Y-axis line
+        const axisPoints = [new THREE.Vector3(-13, -6.5, -11), new THREE.Vector3(-13, 7, -11)];
+        const axisGeo = new THREE.BufferGeometry().setFromPoints(axisPoints);
+        const axisMat = new THREE.LineBasicMaterial({ color: 0x334466, transparent: true, opacity: 0.3 });
+        scene.add(new THREE.Line(axisGeo, axisMat));
+
+        // Y-axis labels
+        function createYAxisLabel(text, position, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 96;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 512, 96);
+            ctx.font = `bold 44px 'Segoe UI', sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = color;
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 8;
+            ctx.fillText(text, 256, 48);
+            const tex = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.6, depthTest: false });
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(5, 0.9, 1);
+            sprite.position.copy(position);
+            scene.add(sprite);
+        }
+        createYAxisLabel('↑ ユーザー体験', new THREE.Vector3(-13, 6.2, -11), '#50e6ff');
+        createYAxisLabel('↓ 基盤・管理',  new THREE.Vector3(-13, -5.5, -11), '#e74856');
+
+        // ====================================
+        // --- Horizontal Slice Planes ---
+        // 3 translucent discs showing the 3 layers
+        // ====================================
+        const sliceLayers = [
+            { y: 4,  color: 0x50e6ff, label: '☁️ ユーザー体験層',    sub: 'Teams・Outlook・Copilot・検索', labelColor: '#50e6ff' },
+            { y: 0,  color: 0x00bcf2, label: '⚡ プラットフォーム層',  sub: 'SharePoint・OneDrive・Groups・Excel', labelColor: '#00bcf2' },
+            { y: -3.5, color: 0xe74856, label: '🔒 基盤・セキュリティ層', sub: 'Entra ID・OAuth・Security・Intune', labelColor: '#e74856' },
+        ];
+
+        // Store refs for layer highlighting
+        const sliceRefs = [];  // { disc, edgeRing, labelSprite, spotlight, key, y, yMin, yMax, color }
+
+        // Layer Y-ranges for node membership
+        const layerRanges = {
+            user:     { yMin: 2.5, yMax: 10 },
+            platform: { yMin: -1.5, yMax: 2.5 },
+            infra:    { yMin: -10, yMax: -1.5 },
+        };
+        const layerKeys = ['user', 'platform', 'infra'];
+
+        sliceLayers.forEach((layer, idx) => {
+            const key = layerKeys[idx];
+
+            // Disc (flat circle)
+            const discGeo = new THREE.CircleGeometry(13, 64);
+            const discMat = new THREE.MeshBasicMaterial({
+                color: layer.color,
+                transparent: true,
+                opacity: 0.025,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const disc = new THREE.Mesh(discGeo, discMat);
+            disc.rotation.x = -Math.PI / 2;
+            disc.position.y = layer.y;
+            scene.add(disc);
+
+            // Edge ring of the disc
+            const edgeRingGeo = new THREE.RingGeometry(12.9, 13.0, 128);
+            const edgeRingMat = new THREE.MeshBasicMaterial({
+                color: layer.color,
+                transparent: true,
+                opacity: 0.12,
+                side: THREE.DoubleSide
+            });
+            const edgeRing = new THREE.Mesh(edgeRingGeo, edgeRingMat);
+            edgeRing.rotation.x = -Math.PI / 2;
+            edgeRing.position.y = layer.y;
+            scene.add(edgeRing);
+
+            // Label on the disc edge
+            const labelCanvas = document.createElement('canvas');
+            labelCanvas.width = 1024;
+            labelCanvas.height = 128;
+            const lctx = labelCanvas.getContext('2d');
+            lctx.clearRect(0, 0, 1024, 128);
+            lctx.font = `bold 48px 'Segoe UI', sans-serif`;
+            lctx.textAlign = 'center';
+            lctx.textBaseline = 'middle';
+            lctx.fillStyle = layer.labelColor;
+            lctx.shadowColor = 'rgba(0,0,0,0.8)';
+            lctx.shadowBlur = 8;
+            lctx.fillText(layer.label, 512, 38);
+            lctx.font = `32px 'Segoe UI', sans-serif`;
+            lctx.fillStyle = '#5a7a90';
+            lctx.shadowBlur = 4;
+            lctx.fillText(layer.sub, 512, 90);
+            const labelTex = new THREE.CanvasTexture(labelCanvas);
+            const labelSpriteMat = new THREE.SpriteMaterial({ map: labelTex, transparent: true, opacity: 0.85, depthTest: false });
+            const labelSprite = new THREE.Sprite(labelSpriteMat);
+            labelSprite.scale.set(12, 1.5, 1);
+            labelSprite.position.set(0, layer.y, 13.5);
+            scene.add(labelSprite);
+
+            // SpotLight for this layer (initially off)
+            const spotlight = new THREE.SpotLight(layer.color, 0, 30, Math.PI * 0.5, 0.6, 1);
+            spotlight.position.set(0, layer.y + 12, 0);
+            spotlight.target.position.set(0, layer.y, 0);
+            scene.add(spotlight);
+            scene.add(spotlight.target);
+
+            sliceRefs.push({
+                disc, edgeRing, labelSprite, spotlight, key,
+                y: layer.y,
+                yMin: layerRanges[key].yMin,
+                yMax: layerRanges[key].yMax,
+                color: layer.color
+            });
+        });
+
+        // ====================================
+        // --- X-Z Axis Visual Guides ---
+        // X軸 = 個人 ↔ 組織   Z軸 = データ ↔ コミュニケーション
+        // ====================================
+        function createAxisLabel3D(text, position, color, scaleW = 6) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 768;
+            canvas.height = 96;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 768, 96);
+            ctx.font = `bold 44px 'Segoe UI', sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = color;
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 8;
+            ctx.fillText(text, 384, 48);
+            const tex = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.65, depthTest: false });
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(scaleW, 0.8, 1);
+            sprite.position.copy(position);
+            scene.add(sprite);
+        }
+
+        // X-axis line (個人 ↔ 組織) on y=0 plane
+        const xAxisPts = [new THREE.Vector3(-13, 0, 0), new THREE.Vector3(13, 0, 0)];
+        const xAxisGeo = new THREE.BufferGeometry().setFromPoints(xAxisPts);
+        scene.add(new THREE.Line(xAxisGeo, new THREE.LineBasicMaterial({ color: 0x446688, transparent: true, opacity: 0.15 })));
+
+        // Z-axis line (データ ↔ コミュニケーション) on y=0 plane
+        const zAxisPts = [new THREE.Vector3(0, 0, -11), new THREE.Vector3(0, 0, 11)];
+        const zAxisGeo = new THREE.BufferGeometry().setFromPoints(zAxisPts);
+        scene.add(new THREE.Line(zAxisGeo, new THREE.LineBasicMaterial({ color: 0x446688, transparent: true, opacity: 0.15 })));
+
+        // X-axis labels
+        createAxisLabel3D('← 個人 (/me)', new THREE.Vector3(-12, 0, 0), '#50e6ff');
+        createAxisLabel3D('組織・テナント →', new THREE.Vector3(12, 0, 0), '#e74856');
+
+        // Z-axis labels
+        createAxisLabel3D('← データ・記録', new THREE.Vector3(0, 0, -10), '#7fba00');
+        createAxisLabel3D('コミュニケーション →', new THREE.Vector3(0, 0, 10), '#00bcf2');
+
+        // Faint grid lines on y=0 to give spatial sense
+        [-8, -4, 4, 8].forEach(v => {
+            // X parallels
+            const ptsX = [new THREE.Vector3(-13, 0, v), new THREE.Vector3(13, 0, v)];
+            scene.add(new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints(ptsX),
+                new THREE.LineBasicMaterial({ color: 0x1a2a3c, transparent: true, opacity: 0.06 })
+            ));
+            // Z parallels
+            const ptsZ = [new THREE.Vector3(v, 0, -11), new THREE.Vector3(v, 0, 11)];
+            scene.add(new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints(ptsZ),
+                new THREE.LineBasicMaterial({ color: 0x1a2a3c, transparent: true, opacity: 0.06 })
+            ));
+        });
+
+        // Quadrant labels (faint, on the ground plane)
+        createAxisLabel3D('📁 個人データ', new THREE.Vector3(-8, -0.3, -7), '#3a5a70', 5);
+        createAxisLabel3D('💬 個人チャット', new THREE.Vector3(-6, -0.3, 7), '#3a5a70', 5);
+        createAxisLabel3D('🏢 組織データ', new THREE.Vector3(8, -0.3, -7), '#3a5a70', 5);
+        createAxisLabel3D('👥 組織コラボ', new THREE.Vector3(8, -0.3, 7), '#3a5a70', 5);
+
+        // Thin horizontal circle outlines at each slice
+        sliceLayers.forEach(layer => {
+            const pts = [];
+            for (let a = 0; a <= Math.PI * 2; a += 0.05) {
+                pts.push(new THREE.Vector3(Math.cos(a) * 13, layer.y, Math.sin(a) * 13));
+            }
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            const mat = new THREE.LineBasicMaterial({ color: layer.color, transparent: true, opacity: 0.06 });
+            scene.add(new THREE.Line(geo, mat));
+        });
+
+        // --- Background Stars ---
+        const starGeo = new THREE.BufferGeometry();
+        const starPositions = new Float32Array(2000 * 3);
+        for (let i = 0; i < 2000; i++) {
+            starPositions[i * 3] = (Math.random() - 0.5) * 200;
+            starPositions[i * 3 + 1] = (Math.random() - 0.5) * 200;
+            starPositions[i * 3 + 2] = (Math.random() - 0.5) * 200;
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starMat = new THREE.PointsMaterial({ color: 0x445566, size: 0.15, transparent: true, opacity: 0.6 });
+        scene.add(new THREE.Points(starGeo, starMat));
+
+        // --- Legend click to highlight category ---
+        let selectedCategory = null;
+        const legendItems = document.querySelectorAll('.legend-item');
+        legendItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const cat = item.dataset.category;
+                if (selectedCategory === cat) {
+                    selectedCategory = null;
+                    item.classList.remove('active');
+                } else {
+                    legendItems.forEach(el => el.classList.remove('active'));
+                    selectedCategory = cat;
+                    item.classList.add('active');
+                }
+                // Clear layer selection when picking a category
+                selectedLayer = null;
+                document.querySelectorAll('.layer-btn').forEach(el => el.classList.remove('active'));
+            });
+        });
+
+        // --- Layer click to spotlight ---
+        let selectedLayer = null;
+        const layerBtns = document.querySelectorAll('.layer-btn');
+        layerBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const layer = btn.dataset.layer;
+                if (selectedLayer === layer) {
+                    selectedLayer = null;
+                    btn.classList.remove('active');
+                } else {
+                    layerBtns.forEach(el => el.classList.remove('active'));
+                    selectedLayer = layer;
+                    btn.classList.add('active');
+                }
+                // Clear category selection when picking a layer
+                selectedCategory = null;
+                legendItems.forEach(el => el.classList.remove('active'));
+            });
+        });
+
+        // --- Raycaster for click (nodes + edges) ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const tooltip = document.getElementById('tooltip');
+        let hoveredNode = null;
+        let hoveredEdgeIdx = -1;
+
+        function onMouseMove(e) {
+            const rect = threePanel.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            // Check nodes
+            const nodeIntersects = raycaster.intersectObjects(nodeMeshes);
+            if (nodeIntersects.length > 0) {
+                const node = nodeIntersects[0].object.userData;
+                hoveredEdgeIdx = -1;
+                if (hoveredNode !== node.id) {
+                    hoveredNode = node.id;
+                    let html = `<h3>${node.label}</h3>${node.desc}`;
+                    if (node.api) html += `<div class="api-path">${node.api}</div>`;
+                    tooltip.innerHTML = html;
+                    tooltip.style.display = 'block';
+                }
+                tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
+                tooltip.style.top = (e.clientY - rect.top + 15) + 'px';
+                document.body.style.cursor = 'pointer';
+                return;
+            }
+
+            // Check edges
+            const edgeIntersects = raycaster.intersectObjects(edgeHitboxes);
+            if (edgeIntersects.length > 0) {
+                const ed = edgeIntersects[0].object.userData;
+                hoveredNode = null;
+                const newIdx = ed.index;
+                if (hoveredEdgeIdx !== newIdx) {
+                    hoveredEdgeIdx = newIdx;
+                    const fromNode = nodeMap[ed.from]?.node;
+                    const toNode = nodeMap[ed.to]?.node;
+                    const fromLabel = fromNode?.label || ed.from;
+                    const toLabel = toNode?.label || ed.to;
+                    let html = `<h3>${fromLabel} → ${toLabel}</h3>`;
+                    html += `<div>${ed.desc}</div>`;
+                    html += `<div class="api-path">${ed.apiPath}</div>`;
+                    tooltip.innerHTML = html;
+                    tooltip.style.display = 'block';
+                }
+                tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
+                tooltip.style.top = (e.clientY - rect.top + 15) + 'px';
+                document.body.style.cursor = 'pointer';
+                return;
+            }
+
+            // Nothing hovered
+            hoveredNode = null;
+            hoveredEdgeIdx = -1;
+            tooltip.style.display = 'none';
+            document.body.style.cursor = 'default';
+        }
+        threePanel.addEventListener('mousemove', onMouseMove);
+
+        // --- Animation ---
+        const clock = new THREE.Clock();
+        let targetCamPos = new THREE.Vector3(12, 10, 20);
+        let targetCamTarget = new THREE.Vector3(0, 0, 0);
+        let camTransitioning = true;  // true while lerping to a story preset
+
+        // Stop camera lerp when user interacts (drag, zoom)
+        controls.addEventListener('start', () => { camTransitioning = false; });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            // Animate center node
+            const centerIcon = nodeMap['you'].iconSprite;
+            const cPulse = 1.0 + Math.sin(time * 2) * 0.04;
+            centerIcon.scale.set(4.5 * cPulse, 4.5 * 1.3 * cPulse, 1);
+            nodeMap['you'].glow.scale.setScalar(1 + Math.sin(time * 1.5) * 0.1);
+
+            // Gentle float for all nodes
+            nodeMeshes.forEach((mesh, i) => {
+                if (mesh.userData.id !== 'you') {
+                    const floatY = nodeMap[mesh.userData.id].pos.y + Math.sin(time * 0.8 + i) * 0.3;
+                    mesh.position.y = floatY;
+                    glowMeshes[i].position.y = floatY;
+                    labelSprites[i].position.y = floatY;
+                }
+            });
+
+            // Animate particles
+            const positions = particleGeometry.attributes.position.array;
+            for (let i = 0; i < particleCount; i++) {
+                const pd = particleData[i];
+                pd.t += pd.speed;
+                if (pd.t > 1) pd.t = 0;
+                const t = pd.t;
+                const x = pd.from.x + (pd.to.x - pd.from.x) * t;
+                const z = pd.from.z + (pd.to.z - pd.from.z) * t;
+                const y = pd.from.y + (pd.to.y - pd.from.y) * t + Math.sin(t * Math.PI) * 1.2;
+                positions[i * 3] = x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = z;
+            }
+            particleGeometry.attributes.position.needsUpdate = true;
+
+            // --- Spotlight animation for selected layer ---
+            sliceRefs.forEach(ref => {
+                const isActive = selectedLayer === ref.key;
+                const targetIntensity = isActive ? 8.0 + Math.sin(time * 2) * 1.5 : 0;
+                ref.spotlight.intensity += (targetIntensity - ref.spotlight.intensity) * 0.1;
+                // Disc glow - very bright when active
+                const targetDiscOpacity = isActive ? 0.18 + Math.sin(time * 2) * 0.04 : (selectedLayer ? 0.005 : 0.025);
+                ref.disc.material.opacity += (targetDiscOpacity - ref.disc.material.opacity) * 0.12;
+                // Edge ring glow
+                const targetRingOpacity = isActive ? 0.7 + Math.sin(time * 3) * 0.15 : (selectedLayer ? 0.02 : 0.12);
+                ref.edgeRing.material.opacity += (targetRingOpacity - ref.edgeRing.material.opacity) * 0.12;
+                // Label brightness
+                const targetLabelOpacity = isActive ? 1.0 : (selectedLayer ? 0.08 : 0.85);
+                ref.labelSprite.material.opacity += (targetLabelOpacity - ref.labelSprite.material.opacity) * 0.12;
+            });
+
+            // Dim ambient/directional light when a layer is selected
+            const targetAmbient = selectedLayer ? 0.1 : 0.8;
+            scene.children.forEach(c => {
+                if (c.isAmbientLight) c.intensity += (targetAmbient - c.intensity) * 0.08;
+            });
+            dirLight.intensity += ((selectedLayer ? 0.2 : 1.2) - dirLight.intensity) * 0.08;
+            pointLight.intensity += ((selectedLayer ? 0.3 : 2) - pointLight.intensity) * 0.08;
+            starMat.opacity += ((selectedLayer ? 0.1 : 0.6) - starMat.opacity) * 0.08;
+
+            // Highlight hovered + selected category + selected layer (icon sprites + glows)
+            nodeMeshes.forEach((mesh, i) => {
+                const cat = mesh.userData.category;
+                const nodeY = mesh.userData.yLevel;
+                const isHovered = mesh.userData.id === hoveredNode;
+                const isSelected = selectedCategory && cat === selectedCategory;
+                const isDimmedByCat = selectedCategory && cat !== selectedCategory;
+
+                // Layer check
+                let isInLayer = false;
+                let isDimmedByLayer = false;
+                if (selectedLayer) {
+                    const range = layerRanges[selectedLayer];
+                    isInLayer = nodeY >= range.yMin && nodeY < range.yMax;
+                    isDimmedByLayer = !isInLayer;
+                }
+
+                const sprite = labelSprites[i];
+                const isCenter = mesh.userData.id === 'you';
+                const baseScale = isCenter ? 4.5 : 2.8;
+
+                if (isInLayer) {
+                    // Spotlight layer highlight - bright & bold
+                    const pulse = 1.0 + Math.sin(time * 3 + i) * 0.15;
+                    sprite.material.opacity = 1.0;
+                    sprite.scale.set(baseScale * pulse * 1.1, baseScale * 1.3 * pulse * 1.1, 1);
+                    glowMeshes[i].material.opacity = 0;
+                } else if (isDimmedByLayer) {
+                    // Nearly invisible
+                    sprite.material.opacity = 0.03;
+                    sprite.scale.set(baseScale * 0.85, baseScale * 1.3 * 0.85, 1);
+                    glowMeshes[i].material.opacity = 0;
+                } else if (isSelected) {
+                    const pulse = 1.0 + Math.sin(time * 4) * 0.12;
+                    sprite.material.opacity = 1.0;
+                    sprite.scale.set(baseScale * pulse, baseScale * 1.3 * pulse, 1);
+                    glowMeshes[i].material.opacity = 0;
+                } else if (isDimmedByCat) {
+                    sprite.material.opacity = 0.2;
+                    sprite.scale.set(baseScale, baseScale * 1.3, 1);
+                    glowMeshes[i].material.opacity = 0;
+                } else if (isHovered) {
+                    const hoverPulse = 1.0 + Math.sin(time * 5) * 0.06;
+                    const hoverScale = 1.5 * hoverPulse;
+                    sprite.material.opacity = 1.0;
+                    sprite.scale.set(baseScale * hoverScale, baseScale * 1.3 * hoverScale, 1);
+                    glowMeshes[i].material.opacity = 0.5 + Math.sin(time * 4) * 0.15;
+                    glowMeshes[i].scale.set(1.8, 1.8, 1.8);
+                } else {
+                    sprite.material.opacity = 1.0;
+                    sprite.scale.set(baseScale, baseScale * 1.3, 1);
+                    glowMeshes[i].material.opacity = 0;
+                    glowMeshes[i].scale.set(1, 1, 1);
+                }
+            });
+
+            // Dim/brighten edges based on selected category/layer + hover
+            edgeLines.forEach((edgeMesh, i) => {
+                const [fromId, toId] = edges[i];
+                const fromCat = nodeMap[fromId]?.node.category;
+                const toCat = nodeMap[toId]?.node.category;
+                const isEdgeHovered = false;
+                const isFromCenter = fromId === 'you';
+                const isConnectedToHover = hoveredNode && (fromId === hoveredNode || toId === hoveredNode);
+
+                if (isConnectedToHover) {
+                    edgeMesh.material.opacity = 1.0;
+                    edgeMesh.material.color.setHex(0x50e6ff);
+                } else if (isEdgeHovered) {
+                    edgeMesh.material.opacity = 0.9;
+                    edgeMesh.material.color.setHex(0x50e6ff);
+                } else if (selectedLayer) {
+                    // Edge visible if both ends are in the selected layer
+                    const fromY = nodeMap[fromId]?.node.yLevel ?? 0;
+                    const toY = nodeMap[toId]?.node.yLevel ?? 0;
+                    const range = layerRanges[selectedLayer];
+                    const fromIn = fromY >= range.yMin && fromY < range.yMax;
+                    const toIn = toY >= range.yMin && toY < range.yMax;
+                    edgeMesh.material.opacity = (fromIn && toIn) ? 0.8 : (fromIn || toIn) ? 0.06 : 0.0;
+                    edgeMesh.material.color.setHex(isFromCenter ? 0x50e6ff : COLORS[fromCat] || 0x50e6ff);
+                } else if (selectedCategory) {
+                    const related = fromCat === selectedCategory || toCat === selectedCategory;
+                    edgeMesh.material.opacity = related ? 0.7 : 0.03;
+                    edgeMesh.material.color.setHex(isFromCenter ? 0x50e6ff : COLORS[fromCat] || 0x50e6ff);
+                } else {
+                    edgeMesh.material.opacity = isFromCenter ? 0.5 : 0.2;
+                    edgeMesh.material.color.setHex(isFromCenter ? 0x50e6ff : COLORS[fromCat] || 0x50e6ff);
+                }
+            });
+
+            // Smooth camera transition to story preset (paused during user interaction)
+            if (camTransitioning) {
+                if (camera.position.distanceTo(targetCamPos) > 0.05) {
+                    camera.position.lerp(targetCamPos, 0.03);
+                }
+                if (controls.target.distanceTo(targetCamTarget) > 0.05) {
+                    controls.target.lerp(targetCamTarget, 0.03);
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // --- Resize ---
+        window.addEventListener('resize', resizeRenderer);
+
+        // ================================================
+        // STORY PANEL CONTROLLER (always visible)
+        // ================================================
+        const STORY_TOTAL = 7;
+        let storyStep = 0;
+        const storySteps = document.querySelectorAll('.story-step');
+        const storyProgress = document.getElementById('story-progress');
+        const storyCounter = document.getElementById('story-counter');
+        const storyPrev = document.getElementById('story-prev');
+        const storyNext = document.getElementById('story-next');
+        const presInner = document.querySelector('.pres-inner');
+
+        // Camera presets per story step
+        const cameraPresets = [
+            { pos: [12, 10, 20], target: [0, 0, 0] },    // 0: 導入 — overview
+            { pos: [4, 3, 8], target: [0, 0, 0] },        // 1: あなたが中心
+            { pos: [14, 8, 14], target: [0, 2, 0] },      // 2: Graph の仕組み（全体俯瞰）
+            { pos: [0, 12, 16], target: [0, 4, 2] },      // 3: ユーザー体験層（上を見上げる）
+            { pos: [10, 3, 10], target: [0, 0, -2] },     // 4: プラットフォーム層（中段を水平に）
+            { pos: [6, -2, 12], target: [2, -3, -1] },    // 5: 基盤・セキュリティ層（下を見下ろす）
+            { pos: [12, 10, 20], target: [0, 0, 0] },     // 6: まとめ（全体俯瞰）
+        ];
+
+        // Build progress dots
+        for (let i = 0; i < STORY_TOTAL; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'story-progress-dot';
+            storyProgress.appendChild(dot);
+        }
+
+        function updateStory() {
+            storySteps.forEach((s, i) => {
+                s.classList.toggle('active', i === storyStep);
+            });
+            const dots = storyProgress.querySelectorAll('.story-progress-dot');
+            dots.forEach((d, i) => {
+                d.className = 'story-progress-dot';
+                if (i < storyStep) d.classList.add('done');
+                if (i === storyStep) d.classList.add('current');
+            });
+            storyCounter.textContent = `${storyStep + 1} / ${STORY_TOTAL}`;
+            storyPrev.style.visibility = storyStep === 0 ? 'hidden' : 'visible';
+            storyNext.textContent = storyStep === STORY_TOTAL - 1 ? '最初に戻る ↩' : '次へ →';
+
+            // Scroll story content to top
+            if (presInner) presInner.scrollTop = 0;
+
+            // Camera preset — re-enable transition
+            const preset = cameraPresets[storyStep];
+            targetCamPos.set(preset.pos[0], preset.pos[1], preset.pos[2]);
+            targetCamTarget.set(preset.target[0], preset.target[1], preset.target[2]);
+            camTransitioning = true;
+
+            // React 3D scene to story step
+            selectedCategory = null;
+            selectedLayer = null;
+            document.querySelectorAll('.legend-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.layer-btn').forEach(el => el.classList.remove('active'));
+
+            if (storyStep === 1) {
+                selectedCategory = 'center';
+            } else if (storyStep === 3) {
+                selectedLayer = 'user';
+                const btn = document.querySelector('.layer-btn[data-layer="user"]');
+                if (btn) btn.classList.add('active');
+            } else if (storyStep === 4) {
+                selectedLayer = 'platform';
+                const btn = document.querySelector('.layer-btn[data-layer="platform"]');
+                if (btn) btn.classList.add('active');
+            } else if (storyStep === 5) {
+                selectedLayer = 'infra';
+                const btn = document.querySelector('.layer-btn[data-layer="infra"]');
+                if (btn) btn.classList.add('active');
+            }
+        }
+
+        storyNext.addEventListener('click', () => {
+            if (storyStep < STORY_TOTAL - 1) {
+                storyStep++;
+            } else {
+                storyStep = 0;
+            }
+            updateStory();
+        });
+        storyPrev.addEventListener('click', () => {
+            if (storyStep > 0) {
+                storyStep--;
+                updateStory();
+            }
+        });
+
+        // Keyboard nav
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault();
+                storyNext.click();
+            }
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                storyPrev.click();
+            }
+        });
+
+        // Initial state
+        updateStory();
+    </script>
+</body>
+</html>
