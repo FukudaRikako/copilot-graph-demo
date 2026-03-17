@@ -497,23 +497,29 @@
                 </div>
             </div>
 
-            <!-- STEP 3: ユーザー体験層 -->
+            <!-- STEP 3: Microsoft 365 コアサービス -->
             <div class="story-step" data-step="3">
-                <div class="story-eyebrow" style="color:#50e6ff">03 — ユーザー体験層</div>
-                <h2 class="story-title">☁️ <span class="acc">Microsoft 365 コアサービス</span></h2>
+                <div class="story-eyebrow" style="color:#50e6ff">03 — Microsoft 365 コアサービス</div>
+                <h2 class="story-title">☁️ <span class="acc">Microsoft 365 Core Services</span></h2>
                 <div class="story-body">
-                    あなたが<em>毎日触れる</em>サービス群です。<br>
+                    あなたが<em>毎日使う</em>サービス群です。<br>
                     Graph API を通じてすべてプログラムからアクセスできます。<br><br>
                     <div class="story-card" style="border-color:rgba(80,230,255,0.25)">
                         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
                             <span class="story-node sn-user">Teams</span>
                             <span class="story-node sn-msg">Outlook</span>
+                            <span class="story-node sn-file">SharePoint</span>
+                            <span class="story-node sn-ev">OneDrive</span>
+                            <span class="story-node" style="background:rgba(80,230,255,0.12);color:#50e6ff">Planner</span>
+                            <span class="story-node" style="background:rgba(0,188,242,0.12);color:#00bcf2">Excel</span>
+                            <span class="story-node" style="background:rgba(0,188,242,0.12);color:#00bcf2">OneNote</span>
+                            <span class="story-node" style="background:rgba(0,188,242,0.12);color:#00bcf2">To Do</span>
                             <span class="story-node sn-ev">Copilot</span>
                             <span class="story-node sn-file">Search</span>
                             <span class="story-node" style="background:rgba(80,230,255,0.12);color:#50e6ff">Viva Engage</span>
                         </div>
-                        チャット、メール、会議、AI アシスタント、横断検索——<br>
-                        <strong>ユーザーが直接操作する</strong>インターフェースです。
+                        メール、予定表、ファイル、チャット、タスク、検索、AI——<br>
+                        <strong>業務を支えるすべてのサービス</strong>が含まれます。
                     </div>
                     <br>
                     <div class="story-card">
@@ -521,62 +527,26 @@
                         <div style="font-size:13px;line-height:1.9">
                             • 次の会議の出席者のプロファイルを自動取得<br>
                             • 予定表をスキャンして最適な会議時間を提案<br>
-                            • メールの重要度でフィルタリング
+                            • Teams のファイルは実は <strong>SharePoint</strong> に保存<br>
+                            • OneDrive から <strong>Excel API</strong> でリアルタイム操作
                         </div>
                     </div>
                     <br>
                     <div class="story-card highlight">
                         <div style="font-size:12px;color:#8899aa;margin-bottom:8px">💬 API に送る命令の例（GET＝取得、POST＝送信）</div>
                         <span class="story-code">GET /me/joinedTeams</span>　<span style="font-size:12px;color:#7a8ea0">← 参加チームを取得</span><br>
-                        <span class="story-code">GET /me/messages?$filter=...</span>　<span style="font-size:12px;color:#7a8ea0">← 重要メールだけ取得</span><br>
-                        <span class="story-code">POST /search/query</span>　<span style="font-size:12px;color:#7a8ea0">← 検索を実行</span><br>
-                        <span style="font-size:12px;color:#8899aa;margin-top:8px;display:block">/me を起点に、体験層のデータへアクセス</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- STEP 4: プラットフォーム層 -->
-            <div class="story-step" data-step="4">
-                <div class="story-eyebrow" style="color:#00bcf2">04 — プラットフォーム層</div>
-                <h2 class="story-title">⚡ <span class="acc2">データ基盤サービス</span></h2>
-                <div class="story-body">
-                    <em>業務データが保存・管理される</em>層です。<br>
-                    Graph はこれらを統一的に抽象化します。<br><br>
-                    <div class="story-card" style="border-color:rgba(0,188,242,0.25)">
-                        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-                            <span class="story-node sn-user">SharePoint</span>
-                            <span class="story-node sn-file">OneDrive</span>
-                            <span class="story-node sn-ev">Planner</span>
-                            <span class="story-node sn-msg">Excel</span>
-                            <span class="story-node" style="background:rgba(0,188,242,0.12);color:#00bcf2">OneNote</span>
-                            <span class="story-node" style="background:rgba(0,188,242,0.12);color:#00bcf2">To Do</span>
-                        </div>
-                        ファイル、タスク、ノート、スプレッドシート——<br>
-                        <strong>業務データの実体</strong>がここにあります。
-                    </div>
-                    <br>
-                    <div class="story-card">
-                        <div style="font-weight:600;margin-bottom:8px;color:#00bcf2">🔗 サービス間の関係性</div>
-                        <div style="font-size:13px;line-height:1.9">
-                            • Teams のファイルは実は <strong>SharePoint</strong> に保存<br>
-                            • Planner のタスクは <strong>Groups</strong> に紐づく<br>
-                            • OneDrive から <strong>Excel API</strong> でリアルタイム操作
-                        </div>
-                    </div>
-                    <br>
-                    <div class="story-card" style="border-color:rgba(0,188,242,0.2);background:rgba(0,188,242,0.04)">
-                        <div style="font-size:12px;color:#8899aa;margin-bottom:8px">💬 API でデータを取得する例</div>
-                        <span class="story-code">GET /sites/{id}/drive</span>　<span style="font-size:12px;color:#7a8ea0">← サイトのファイル</span><br>
+                        <span class="story-code">GET /me/messages</span>　<span style="font-size:12px;color:#7a8ea0">← メール一覧</span><br>
                         <span class="story-code">GET /me/drive/root/children</span>　<span style="font-size:12px;color:#7a8ea0">← マイファイル一覧</span><br>
-                        <span class="story-code">GET /me/.../workbook</span>　<span style="font-size:12px;color:#7a8ea0">← Excel を操作</span><br>
-                        <span style="font-size:12px;color:#8899aa;margin-top:8px;display:block">同じ GET 命令で、どのサービスのデータも取得可能</span>
+                        <span class="story-code">GET /sites/{id}/drive</span>　<span style="font-size:12px;color:#7a8ea0">← サイトのファイル</span><br>
+                        <span class="story-code">POST /search/query</span>　<span style="font-size:12px;color:#7a8ea0">← 横断検索を実行</span><br>
+                        <span style="font-size:12px;color:#8899aa;margin-top:8px;display:block">/me を起点に、コアサービスのデータへアクセス</span>
                     </div>
                 </div>
             </div>
 
-            <!-- STEP 5: 基盤・セキュリティ層 -->
-            <div class="story-step" data-step="5">
-                <div class="story-eyebrow" style="color:#e74856">05 — 基盤・セキュリティ層</div>
+            <!-- STEP 4: Enterprise Mobility + Security -->
+            <div class="story-step" data-step="4">
+                <div class="story-eyebrow" style="color:#e74856">04 — Enterprise Mobility + Security</div>
                 <h2 class="story-title">🔒 <span class="acc4">Enterprise Mobility + Security</span></h2>
                 <div class="story-body">
                     ユーザーID・デバイスID・アクセス管理・コンプライアンス・<br>
@@ -613,9 +583,9 @@
                 </div>
             </div>
 
-            <!-- STEP 6: まとめ -->
-            <div class="story-step" data-step="6">
-                <div class="story-eyebrow" style="color:#50e6ff">06 — まとめ</div>
+            <!-- STEP 5: まとめ -->
+            <div class="story-step" data-step="5">
+                <div class="story-eyebrow" style="color:#50e6ff">05 — まとめ</div>
                 <h2 class="story-title"><span class="acc">Microsoft Graph</span> まとめ</h2>
                 <div class="story-body">
                     <div class="story-card" style="border-color:rgba(80,230,255,0.25)">
@@ -681,7 +651,7 @@
 
     <div id="story-nav">
         <button class="story-nav-btn" id="story-prev">← 戻る</button>
-        <span id="story-counter">1 / 8</span>
+        <span id="story-counter">1 / 6</span>
         <button class="story-nav-btn" id="story-next">次へ →</button>
     </div>
     <div style="text-align:center;padding:4px 0 6px;font-size:10px;color:rgba(128,140,155,0.45);">
@@ -693,17 +663,13 @@
 <div id="three-panel">
     <div id="tooltip"></div>
     <div id="layers">
-        <div class="layer-btn" data-layer="user" style="--lc:#50e6ff">
+        <div class="layer-btn" data-layer="m365" style="--lc:#50e6ff">
             <div class="layer-dot" style="background:#50e6ff"></div>
-            <div class="layer-text"><span class="layer-name">体験</span></div>
+            <div class="layer-text"><span class="layer-name">M365</span></div>
         </div>
-        <div class="layer-btn" data-layer="platform" style="--lc:#00bcf2">
-            <div class="layer-dot" style="background:#00bcf2"></div>
-            <div class="layer-text"><span class="layer-name">基盤</span></div>
-        </div>
-        <div class="layer-btn" data-layer="infra" style="--lc:#e74856">
+        <div class="layer-btn" data-layer="ems" style="--lc:#e74856">
             <div class="layer-dot" style="background:#e74856"></div>
-            <div class="layer-text"><span class="layer-name">安全</span></div>
+            <div class="layer-text"><span class="layer-name">EMS</span></div>
         </div>
     </div>
     <canvas id="canvas"></canvas>
@@ -774,7 +740,7 @@
 
         // --- Node Data (Graph API endpoints) ---
         // 3D Position Meaning:
-        //   Y軸 = 抽象度レイヤー (+上=ユーザー向け / -下=基盤・管理)
+        //   Y軸 = 抽象度レイヤー (+上=M365コアサービス / -下=EMS)
         //   X軸 = 個人 ←→ 組織  (-左=/me個人 / +右=グループ・テナント)
         //   Z軸 = データ・記録 ←→ コミュニケーション (-手前=ファイル・データ / +奥=チャット・会議)
         const nodes = [
@@ -1419,17 +1385,16 @@
             sprite.position.copy(position);
             scene.add(sprite);
         }
-        createYAxisLabel('↑ ユーザー体験', new THREE.Vector3(-13, 6.2, -11), '#50e6ff');
-        createYAxisLabel('↓ 基盤・管理',  new THREE.Vector3(-13, -5.5, -11), '#e74856');
+        createYAxisLabel('↑ M365 コアサービス', new THREE.Vector3(-13, 6.2, -11), '#50e6ff');
+        createYAxisLabel('↓ EMS (セキュリティ)',  new THREE.Vector3(-13, -5.5, -11), '#e74856');
 
         // ====================================
         // --- Horizontal Slice Planes ---
-        // 3 translucent discs showing the 3 layers
+        // 2 translucent discs showing the 2 layers
         // ====================================
         const sliceLayers = [
-            { y: 4,  color: 0x50e6ff, label: '☁️ ユーザー体験層',    sub: 'Teams・Outlook・Copilot・検索', labelColor: '#50e6ff' },
-            { y: 0,  color: 0x00bcf2, label: '⚡ プラットフォーム層',  sub: 'SharePoint・OneDrive・Groups・Excel', labelColor: '#00bcf2' },
-            { y: -3.5, color: 0xe74856, label: '🔒 基盤・セキュリティ層', sub: 'Entra ID・OAuth・Security・Intune', labelColor: '#e74856' },
+            { y: 1.5,  color: 0x50e6ff, label: '☁️ Microsoft 365 コアサービス', sub: 'Teams・Outlook・SharePoint・OneDrive・Planner・Excel・Copilot', labelColor: '#50e6ff' },
+            { y: -3.5, color: 0xe74856, label: '🔒 Enterprise Mobility + Security', sub: 'Entra ID・OAuth・Security・Intune', labelColor: '#e74856' },
         ];
 
         // Store refs for layer highlighting
@@ -1437,11 +1402,10 @@
 
         // Layer Y-ranges for node membership
         const layerRanges = {
-            user:     { yMin: 2.5, yMax: 10 },
-            platform: { yMin: -1.5, yMax: 2.5 },
-            infra:    { yMin: -10, yMax: -1.5 },
+            m365: { yMin: -1.5, yMax: 10 },
+            ems:  { yMin: -10, yMax: -1.5 },
         };
-        const layerKeys = ['user', 'platform', 'infra'];
+        const layerKeys = ['m365', 'ems'];
 
         sliceLayers.forEach((layer, idx) => {
             const key = layerKeys[idx];
@@ -1887,7 +1851,7 @@
         // ================================================
         // STORY PANEL CONTROLLER (always visible)
         // ================================================
-        const STORY_TOTAL = 7;
+        const STORY_TOTAL = 6;
         let storyStep = 0;
         const storySteps = document.querySelectorAll('.story-step');
         const storyProgress = document.getElementById('story-progress');
@@ -1901,10 +1865,9 @@
             { pos: [12, 10, 20], target: [0, 0, 0] },    // 0: 導入 — overview
             { pos: [4, 3, 8], target: [0, 0, 0] },        // 1: あなたが中心
             { pos: [14, 8, 14], target: [0, 2, 0] },      // 2: Graph の仕組み（全体俯瞰）
-            { pos: [0, 12, 16], target: [0, 4, 2] },      // 3: ユーザー体験層（上を見上げる）
-            { pos: [10, 3, 10], target: [0, 0, -2] },     // 4: プラットフォーム層（中段を水平に）
-            { pos: [6, -2, 12], target: [2, -3, -1] },    // 5: 基盤・セキュリティ層（下を見下ろす）
-            { pos: [12, 10, 20], target: [0, 0, 0] },     // 6: まとめ（全体俯瞰）
+            { pos: [5, 8, 16], target: [0, 2, 0] },       // 3: M365 コアサービス（上側を俯瞰）
+            { pos: [6, -2, 12], target: [2, -3, -1] },    // 4: EMS（下を見下ろす）
+            { pos: [12, 10, 20], target: [0, 0, 0] },     // 5: まとめ（全体俯瞰）
         ];
 
         // Build progress dots
@@ -1946,16 +1909,12 @@
             if (storyStep === 1) {
                 selectedCategory = 'center';
             } else if (storyStep === 3) {
-                selectedLayer = 'user';
-                const btn = document.querySelector('.layer-btn[data-layer="user"]');
+                selectedLayer = 'm365';
+                const btn = document.querySelector('.layer-btn[data-layer="m365"]');
                 if (btn) btn.classList.add('active');
             } else if (storyStep === 4) {
-                selectedLayer = 'platform';
-                const btn = document.querySelector('.layer-btn[data-layer="platform"]');
-                if (btn) btn.classList.add('active');
-            } else if (storyStep === 5) {
-                selectedLayer = 'infra';
-                const btn = document.querySelector('.layer-btn[data-layer="infra"]');
+                selectedLayer = 'ems';
+                const btn = document.querySelector('.layer-btn[data-layer="ems"]');
                 if (btn) btn.classList.add('active');
             }
         }
